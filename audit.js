@@ -50,9 +50,9 @@ const CONFIG = {
 };
 
 /**
- * Process input URL to get the sitemap URL
+ * Process input URL to get the base URL
  */
-function processSitemapUrl(input) {
+function processBaseUrl(input) {
   if (!input) {
     console.error(chalk.red('\nError: Please provide a WordPress website URL'));
     console.log(chalk.yellow('\nUsage:'));
@@ -69,21 +69,57 @@ function processSitemapUrl(input) {
     url = 'https://' + url;
   }
   
-  // If it already ends with sitemap.xml or sitemap_index.xml, use as is
+  // If it already ends with sitemap.xml or sitemap_index.xml, return as is
   if (url.endsWith('.xml')) {
-    return url;
+    return { baseUrl: url.substring(0, url.lastIndexOf('/')), directSitemapUrl: url };
   }
   
   // Remove trailing slash
   url = url.replace(/\/$/, '');
   
-  // Add standard WordPress sitemap path
-  return url + '/sitemap_index.xml';
+  return { baseUrl: url, directSitemapUrl: null };
+}
+
+/**
+ * Try to find the sitemap URL by checking common locations
+ */
+async function findSitemapUrl(baseUrl, directSitemapUrl) {
+  // If a direct sitemap URL was provided, use it
+  if (directSitemapUrl) {
+    return directSitemapUrl;
+  }
+
+  // Try common sitemap locations in order
+  const sitemapPaths = [
+    '/sitemap_index.xml',  // Yoast SEO, RankMath
+    '/wp-sitemap.xml',     // WordPress core (5.5+)
+    '/sitemap.xml',        // Generic/other plugins
+  ];
+
+  for (const path of sitemapPaths) {
+    const testUrl = baseUrl + path;
+    try {
+      const response = await axios.head(testUrl, { 
+        timeout: 10000,
+        validateStatus: (status) => status === 200
+      });
+      if (response.status === 200) {
+        console.log(chalk.green(`✓ Found sitemap at: ${testUrl}`));
+        return testUrl;
+      }
+    } catch (error) {
+      // Continue to next path
+    }
+  }
+
+  // If nothing found, return the default
+  return baseUrl + '/sitemap_index.xml';
 }
 
 // Get website URL from command line
 const inputUrl = process.argv[2];
-const sitemapUrl = processSitemapUrl(inputUrl);
+const { baseUrl, directSitemapUrl } = processBaseUrl(inputUrl);
+let sitemapUrl = directSitemapUrl || baseUrl + '/sitemap_index.xml'; // Will be updated in main()
 
 /**
  * Simple concurrency limiter without external dependencies
@@ -775,6 +811,10 @@ function escapeHtml(text) {
 async function main() {
   console.log(chalk.cyan('\n🔍 WordPress Accessibility Audit (Enhanced)\n'));
   
+  // Find the correct sitemap URL
+  console.log(chalk.gray('Looking for sitemap...\n'));
+  sitemapUrl = await findSitemapUrl(baseUrl, directSitemapUrl);
+  
   // Extract domain from sitemap URL for display
   let domain;
   try {
@@ -794,18 +834,22 @@ async function main() {
   console.log(chalk.gray(`  - Delay between requests: ${CONFIG.DELAY_BETWEEN_REQUESTS/1000}s`));
   console.log(chalk.yellow(`\n⚠️  Note: Using conservative settings for maximum reliability\n`));
   
-  // First, verify the sitemap exists
+  // Verify the sitemap exists
   console.log(chalk.gray('Verifying sitemap accessibility...\n'));
   try {
     await axios.head(sitemapUrl, { timeout: 10000 });
   } catch (error) {
     console.error(chalk.red('\n❌ Error: Unable to access sitemap at ' + sitemapUrl));
     console.error(chalk.yellow('\nPossible reasons:'));
-    console.error(chalk.gray('  1. The website does not have a sitemap at the standard location'));
+    console.error(chalk.gray('  1. The website does not have a sitemap at any standard location'));
     console.error(chalk.gray('  2. The website URL is incorrect'));
     console.error(chalk.gray('  3. The website is not accessible'));
-    console.error(chalk.gray('\nTry specifying the full sitemap URL directly:'));
-    console.error(chalk.gray(`  node audit.js ${sitemapUrl.replace('/sitemap_index.xml', '/sitemap.xml')}`));
+    console.error(chalk.gray('\nCommon sitemap locations tried:'));
+    console.error(chalk.gray('  - /sitemap_index.xml (Yoast SEO, RankMath)'));
+    console.error(chalk.gray('  - /wp-sitemap.xml (WordPress core)'));
+    console.error(chalk.gray('  - /sitemap.xml (Generic)'));
+    console.error(chalk.gray('\nTry specifying the full sitemap URL directly if it\'s in a custom location:'));
+    console.error(chalk.gray(`  node audit.js ${baseUrl}/custom-sitemap.xml`));
     process.exit(1);
   }
   
