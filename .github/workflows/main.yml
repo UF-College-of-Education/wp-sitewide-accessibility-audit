@@ -1,32 +1,43 @@
 name: Accessibility Audit
 
 on:
-  workflow_dispatch:   # allows you to run manually
-  push:
-    branches: [ main ] # optional
+  workflow_dispatch:
 
 jobs:
   run-accessibility-audit:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install dependencies
+      - name: Install Chromium dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2
+
+      - name: Install NPM packages
         run: npm install
 
-      - name: Run audit
-        run: |
-          node audit.js https://kaylasharpdesign.com || true
+      - name: Run accessibility audit
+        run: node audit.js https://kaylasharpdesign.com
 
-      - name: Upload report artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload report
+        uses: actions/upload-artifact@v4
         with:
           name: accessibility-report
           path: report.html
