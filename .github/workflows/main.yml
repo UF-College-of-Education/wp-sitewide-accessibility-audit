@@ -1,0 +1,32 @@
+name: Accessibility Audit
+
+on:
+  workflow_dispatch:   # allows you to run manually
+  push:
+    branches: [ main ] # optional
+
+jobs:
+  run-accessibility-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run audit
+        run: |
+          node audit.js https://kaylasharpdesign.com || true
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: accessibility-report
+          path: report.html
