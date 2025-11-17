@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install Chromium dependencies
+      - name: Install Chromium dependencies (Ubuntu Noble Fix)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -28,7 +28,9 @@ jobs:
             libxfixes3 \
             libxrandr2 \
             libgbm1 \
-            libasound2
+            libasound2t64 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0
 
       - name: Install NPM packages
         run: npm install
