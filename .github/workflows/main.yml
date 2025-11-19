@@ -36,7 +36,7 @@ jobs:
         run: npm install
 
       - name: Run accessibility audit
-        run: node audit.js https://education.ufl.edu/program-directory/editor/
+        run: node audit.js https://education.ufl.edu/coe-online/
 
       - name: Upload report
         uses: actions/upload-artifact@v4
